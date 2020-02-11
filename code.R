@@ -32,7 +32,7 @@ library(data.table)
 
 
 
-#generate every possibly viability scenario after first round:
+#generate every possibly viability scenario_id after first round:
 viability_threshold <- .15
 max_viable_candidates <- floor(1/viability_threshold)
 l <- list()
@@ -47,11 +47,21 @@ dtlist <- list()
 
 for(i in 1:length(l)){
   dtlist[[i]] <- data.table(candidate=l[[i]])
-  dtlist[[i]][,scenario:=i]
+  dtlist[[i]][,scenario_id:=i]
 }
 
 scenarios <- rbindlist(dtlist)
 
+
+
+create_unused_name <- function(x,reserved_cols){
+  for(i in 1:length(x)){
+    while(x[i] %in% reserved_cols){
+      x[i] <- paste0("i.",x[i])
+    }  
+  }
+  x
+}
 
 
 #a function to grid expand an arbitrary number of data.tables
@@ -91,27 +101,23 @@ CJ.dt <- function(...,groups=NULL) {
 }
 
 
-early_votes_expanded <- CJ.dt(early_votes,data.table(scenario=unique(scenarios[["scenario"]])))
+early_votes_expanded <- CJ.dt(early_votes,data.table(scenario_id=unique(scenarios[["scenario_id"]])))
 
-setkeyv(early_votes_expanded,c("scenario","candidate"))
-setkeyv(scenarios,c("scenario","candidate"))
+setkeyv(early_votes_expanded,c("scenario_id","candidate"))
+setkeyv(scenarios,c("scenario_id","candidate"))
 
 early_votes_expanded2 <- early_votes_expanded[scenarios]
 
-round2votes <- early_votes_expanded2[, list(candidate=candidate[min(rank)]),by=c("early_voter_id","scenario")]
-round2votes[order(scenario, early_voter_id)]
+round2votes <- early_votes_expanded2[, list(candidate=candidate[min(rank)]),by=c("early_voter_id","scenario_id")]
+round2votes[order(scenario_id, early_voter_id)]
 
 
-round2votes[,stopifnot(sum(duplicated(early_voter_id))==0),by=scenario]
+round2votes[,stopifnot(sum(duplicated(early_voter_id))==0),by=scenario_id]
 
 
-#x is an unordered vector of candidates viable after round 1
-#y is a scenario table
-find_scenario <- function(x,y){
-  y[,list(V1=all(x %in% candidate)&.N==length(x)),by="scenario"][(V1)][["scenario"]]
-}
+example_scenario <-c("Sanders", "Biden", "Warren", "Buttigieg")
+example_scenario_id <- scenarios[,list(V1=all(example_scenario %in% candidate)&.N==length(example_scenario)),by="scenario_id"][(V1)][["scenario_id"]]
 
-example_scenario <- find_scenario(c("Sanders", "Biden", "Warren", "Buttigieg"),scenarios)
 
-scenarios[scenario==example_scenario]
-round2votes[scenario==example_scenario, table(candidate)]
+scenarios[scenario_id==example_scenario_id ]
+round2votes[scenario_id==example_scenario_id , table(candidate)]
